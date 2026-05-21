@@ -5,7 +5,7 @@ import { Hero } from "@/components/music/Hero";
 import { TrackList } from "@/components/music/TrackList";
 import { AlbumRow } from "@/components/music/AlbumRow";
 import { NowPlayingBar } from "@/components/music/NowPlayingBar";
-import { tracks, newReleases } from "@/components/music/data";
+import { newReleases } from "@/components/music/data";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -45,7 +45,7 @@ function Index() {
                     Sort
                   </button>
                 </div>
-                <TrackList tracks={tracks} />
+                <TrackList />
               </section>
               <AlbumRow title="New in Hi-Res" albums={newReleases} />
             </div>
