@@ -1,9 +1,9 @@
-import { Play, Clock, Download, MoreHorizontal } from "lucide-react";
+import { Play, Clock, Download, Loader2, Check, AlertCircle } from "lucide-react";
 import { useMusic } from "@/lib/MusicContext";
 import { CleanTrack } from "@/lib/music-api";
 
 export function TrackList() {
-  const { searchResults, currentTrack, setCurrentTrack, setIsPlaying } = useMusic();
+  const { searchResults, currentTrack, setCurrentTrack, setIsPlaying, downloads, requestDownload } = useMusic();
 
   const handlePlay = (track: CleanTrack) => {
     setCurrentTrack(track);
@@ -94,9 +94,46 @@ export function TrackList() {
               </div>
 
               <div className="flex items-center justify-end gap-3 text-sm text-muted-foreground">
-                <button className="opacity-0 group-hover:opacity-100 transition-opacity hover:text-primary">
-                  <Download className="h-4 w-4" />
-                </button>
+                {(() => {
+                  const dl = downloads.find((d) => d.track_id === track.id);
+                  if (dl?.status === "downloading" || dl?.status === "pending") {
+                    return (
+                      <div className="flex items-center gap-1 text-primary">
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        <span className="text-xs tabular-nums w-8 text-right">
+                          {Math.round(dl.progress)}%
+                        </span>
+                      </div>
+                    );
+                  }
+                  if (dl?.status === "completed") {
+                    return (
+                      <div className="text-primary" title="Downloaded">
+                        <Check className="h-4 w-4" />
+                      </div>
+                    );
+                  }
+                  if (dl?.status === "failed") {
+                    return (
+                      <button
+                        onClick={() => requestDownload(track)}
+                        className="text-destructive hover:opacity-80 transition-opacity"
+                        title="Download failed — retry"
+                      >
+                        <AlertCircle className="h-4 w-4" />
+                      </button>
+                    );
+                  }
+                  return (
+                    <button
+                      onClick={() => requestDownload(track)}
+                      className="opacity-0 group-hover:opacity-100 transition-opacity hover:text-primary"
+                      title="Download"
+                    >
+                      <Download className="h-4 w-4" />
+                    </button>
+                  );
+                })()}
                 <span>{formatTime(track.duration)}</span>
               </div>
             </div>

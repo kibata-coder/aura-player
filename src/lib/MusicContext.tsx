@@ -1,97 +1,141 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+// src/lib/MusicContext.tsx
+import React, { createContext, useContext, useEffect, useRef, useState, useCallback } from 'react';
 import { CleanTrack } from './music-api';
 
-// Define what a download task looks like
-export interface DownloadTask {
+export type DownloadStatus = 'pending' | 'downloading' | 'completed' | 'failed';
+
+export interface DownloadItem {
+  id: string;
   track_id: string;
-  status: 'pending' | 'downloading' | 'completed' | 'error';
+  title: string;
+  artist: string;
+  status: DownloadStatus;
   progress: number;
 }
 
 interface MusicContextType {
-  searchResults: CleanTrack[]; 
+  searchResults: CleanTrack[];
   setSearchResults: (tracks: CleanTrack[]) => void;
-  currentTrack: CleanTrack | null; 
+  currentTrack: CleanTrack | null;
   setCurrentTrack: (track: CleanTrack | null) => void;
-  isPlaying: boolean; 
+  isPlaying: boolean;
   setIsPlaying: (playing: boolean) => void;
-  downloads: DownloadTask[];
+  downloads: DownloadItem[];
   requestDownload: (track: CleanTrack) => Promise<void>;
 }
 
 const MusicContext = createContext<MusicContextType | undefined>(undefined);
 
-// This will be the URL of your Render backend. 
-// We use localhost for local development!
-const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5030';
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL as string | undefined;
+const DOWNLOADS_ENDPOINT = `${BACKEND_URL ?? ''}/api/downloads`;
 
 export function MusicProvider({ children }: { children: React.ReactNode }) {
   const [searchResults, setSearchResults] = useState<CleanTrack[]>([]);
   const [currentTrack, setCurrentTrack] = useState<CleanTrack | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
-  const [downloads, setDownloads] = useState<DownloadTask[]>([]);
+  const [downloads, setDownloads] = useState<DownloadItem[]>([]);
 
-  // 1. Polling Mechanism to fetch download progress
-  useEffect(() => {
-    // To save network requests, we only poll if there is an active download going on
-    const hasActiveDownloads = downloads.some(d => d.status === 'pending' || d.status === 'downloading');
-    if (!hasActiveDownloads) return;
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-    // Ping the backend every 2 seconds for queue updates
-    const intervalId = setInterval(async () => {
-      try {
-        const res = await fetch(`${BACKEND_URL}/api/downloads`);
-        if (res.ok) {
-          const data: DownloadTask[] = await res.json();
-          setDownloads(data);
-        }
-      } catch (error) {
-        console.error("Error fetching download queue:", error);
-      }
-    }, 2000);
-
-    return () => clearInterval(intervalId); // Cleanup interval on unmount
-  }, [downloads]);
-
-  // 2. Function to request a new download
-  const requestDownload = async (track: CleanTrack) => {
-    // Check if it's already downloading to prevent duplicate clicks
-    if (downloads.some((d) => d.track_id === track.id && d.status !== 'error')) {
-      return; 
-    }
-
-    // "Optimistic UI Update" - immediately show it as pending in the UI
-    setDownloads(prev => [...prev, { track_id: track.id, status: 'pending', progress: 0 }]);
-
+  const fetchQueue = useCallback(async () => {
+    if (!BACKEND_URL) return;
     try {
-      // Send the request to our custom Python backend
-      const res = await fetch(`${BACKEND_URL}/api/downloads`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          track_id: track.id, 
-          title: track.title, 
-          artist: track.artist 
-        })
-      });
-      
-      if (!res.ok) throw new Error("Backend rejected request");
-    } catch (error) {
-      console.error("Failed to request download:", error);
-      // Revert optimistic update to show an error state if the fetch failed
-      setDownloads(prev => prev.map(d => 
-        d.track_id === track.id ? { ...d, status: 'error' } : d
-      ));
+      const res = await fetch(DOWNLOADS_ENDPOINT);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data: DownloadItem[] = await res.json();
+      setDownloads(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error('Failed to fetch download queue:', err);
     }
-  };
+  }, []);
+
+  const stopPolling = useCallback(() => {
+    if (pollRef.current) {
+      clearInterval(pollRef.current);
+      pollRef.current = null;
+    }
+  }, []);
+
+  const startPolling = useCallback(() => {
+    if (pollRef.current || !BACKEND_URL) return;
+    pollRef.current = setInterval(fetchQueue, 2000);
+  }, [fetchQueue]);
+
+  // Run polling while there are pending/downloading jobs; stop when idle.
+  useEffect(() => {
+    const hasActive = downloads.some(
+      (d) => d.status === 'pending' || d.status === 'downloading'
+    );
+    if (hasActive) startPolling();
+    else stopPolling();
+    return () => stopPolling();
+  }, [downloads, startPolling, stopPolling]);
+
+  // Initial fetch on mount to pick up any in-flight jobs.
+  useEffect(() => {
+    fetchQueue();
+    return () => stopPolling();
+  }, [fetchQueue, stopPolling]);
+
+  const requestDownload = useCallback(
+    async (track: CleanTrack) => {
+      if (!BACKEND_URL) {
+        console.error('VITE_BACKEND_URL is not configured');
+        return;
+      }
+
+      // Optimistic entry so the UI reacts immediately
+      const optimistic: DownloadItem = {
+        id: `tmp-${track.id}`,
+        track_id: track.id,
+        title: track.title,
+        artist: track.artist,
+        status: 'pending',
+        progress: 0,
+      };
+      setDownloads((prev) =>
+        prev.some((d) => d.track_id === track.id) ? prev : [...prev, optimistic]
+      );
+      startPolling();
+
+      try {
+        const res = await fetch(DOWNLOADS_ENDPOINT, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            track_id: track.id,
+            title: track.title,
+            artist: track.artist,
+            stream_url: track.streamUrl,
+          }),
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        await fetchQueue();
+      } catch (err) {
+        console.error('Failed to request download:', err);
+        setDownloads((prev) =>
+          prev.map((d) =>
+            d.track_id === track.id ? { ...d, status: 'failed' } : d
+          )
+        );
+      }
+    },
+    [fetchQueue, startPolling]
+  );
 
   return (
-    <MusicContext.Provider value={{ 
-      searchResults, setSearchResults, 
-      currentTrack, setCurrentTrack, 
-      isPlaying, setIsPlaying,
-      downloads, requestDownload 
-    }}>
+    <MusicContext.Provider
+      value={{
+        searchResults,
+        setSearchResults,
+        currentTrack,
+        setCurrentTrack,
+        isPlaying,
+        setIsPlaying,
+        downloads,
+        requestDownload,
+      }}
+    >
       {children}
     </MusicContext.Provider>
   );
@@ -99,6 +143,8 @@ export function MusicProvider({ children }: { children: React.ReactNode }) {
 
 export function useMusic() {
   const context = useContext(MusicContext);
-  if (context === undefined) throw new Error('useMusic must be used within a MusicProvider');
+  if (context === undefined) {
+    throw new Error('useMusic must be used within a MusicProvider');
+  }
   return context;
 }
