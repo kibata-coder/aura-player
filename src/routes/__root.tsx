@@ -83,8 +83,8 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { name: "twitter:site", content: "@Lovable" },
       { name: "twitter:title", content: "Lovable App" },
       { name: "twitter:description", content: "Aura Player is a dark-mode music streaming web app for high-resolution lossless audio." },
-      { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/47fa3056-74f3-485b-a8b2-7c124087cb33/id-preview-6096d896--63218888-ba3c-41b7-a9d4-4c3abd1dfee9.lovable.app-1779358951974.png" },
-      { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/47fa3056-74f3-485b-a8b2-7c124087cb33/id-preview-6096d896--63218888-ba3c-41b7-a9d4-4c3abd1dfee9.lovable.app-1779358951974.png" },
+      { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/44697fbc-9d36-4286-8a9a-61c0732880ee/id-preview-48bea652--63218888-ba3c-41b7-a9d4-4c3abd1dfee9.lovable.app-1779359135816.png" },
+      { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/44697fbc-9d36-4286-8a9a-61c0732880ee/id-preview-48bea652--63218888-ba3c-41b7-a9d4-4c3abd1dfee9.lovable.app-1779359135816.png" },
     ],
     links: [
       {
