@@ -1,108 +1,54 @@
-import { Play, Clock, Download, MoreHorizontal } from "lucide-react";
+import { Play, Pause, SkipBack, SkipForward, Shuffle, Repeat, Volume2 } from "lucide-react";
 import { useMusic } from "@/lib/MusicContext";
-import { CleanTrack } from "@/lib/music-api";
 
-export function TrackList() {
-  const { searchResults, currentTrack, setCurrentTrack, setIsPlaying } = useMusic();
-
-  const handlePlay = (track: CleanTrack) => {
-    setCurrentTrack(track);
-    setIsPlaying(true);
-  };
-
-  const formatTime = (seconds: number) => {
-    if (!seconds || isNaN(seconds)) return "0:00";
-    const m = Math.floor(seconds / 60);
-    const s = Math.floor(seconds % 60);
-    return `${m}:${s < 10 ? '0' : ''}${s}`;
-  };
-
-  if (searchResults.length === 0) {
-    return (
-      <div className="flex-1 flex flex-col items-center justify-center p-12 text-center h-64">
-        <div className="w-16 h-16 bg-elevated rounded-full flex items-center justify-center mb-4">
-          <Clock className="w-6 h-6 text-muted-foreground" />
-        </div>
-        <h2 className="text-xl font-semibold text-foreground mb-2">Listen to anything</h2>
-        <p className="text-sm text-muted-foreground max-w-md">
-          Search for an artist, album, or track in the top bar to pull direct streams from the proxy network.
-        </p>
-      </div>
-    );
-  }
+export function NowPlayingBar() {
+  const { currentTrack, isPlaying, setIsPlaying } = useMusic();
 
   return (
-    <div className="px-6 pb-24">
-      {/* Table Header */}
-      <div className="grid grid-cols-[16px_1fr_1fr_minmax(120px,1fr)_48px] items-center gap-4 px-4 py-2 text-xs font-medium text-muted-foreground uppercase tracking-wider border-b border-border mb-2">
-        <div className="text-center">#</div>
-        <div>Title</div>
-        <div className="hidden sm:block">Artist</div>
-        <div className="hidden md:block">Album</div>
-        <div className="text-right flex justify-end">
-          <Clock className="h-4 w-4" />
+    <footer className="h-20 border-t border-border bg-card/80 backdrop-blur px-4 flex items-center gap-4">
+      <div className="flex items-center gap-3 w-64 min-w-0">
+        {currentTrack && (
+          <>
+            <img
+              src={currentTrack.coverUrl}
+              alt={currentTrack.title}
+              className="h-12 w-12 rounded object-cover bg-elevated"
+            />
+            <div className="min-w-0">
+              <p className="text-sm font-medium truncate">{currentTrack.title}</p>
+              <p className="text-xs text-muted-foreground truncate">{currentTrack.artist}</p>
+            </div>
+          </>
+        )}
+      </div>
+
+      <div className="flex-1 flex flex-col items-center gap-1">
+        <div className="flex items-center gap-4 text-muted-foreground">
+          <button className="hover:text-foreground"><Shuffle className="h-4 w-4" /></button>
+          <button className="hover:text-foreground"><SkipBack className="h-4 w-4" /></button>
+          <button
+            onClick={() => setIsPlaying(!isPlaying)}
+            className="h-9 w-9 grid place-items-center rounded-full bg-foreground text-background hover:scale-105 transition-transform"
+          >
+            {isPlaying ? <Pause className="h-4 w-4" fill="currentColor" /> : <Play className="h-4 w-4" fill="currentColor" />}
+          </button>
+          <button className="hover:text-foreground"><SkipForward className="h-4 w-4" /></button>
+          <button className="hover:text-foreground"><Repeat className="h-4 w-4" /></button>
+        </div>
+        <div className="w-full max-w-xl h-1 rounded-full bg-elevated overflow-hidden">
+          <div className="h-full w-0 bg-primary" />
         </div>
       </div>
 
-      {/* Track Rows */}
-      <div className="flex flex-col gap-1">
-        {searchResults.map((track, index) => {
-          const isCurrentlyPlaying = currentTrack?.id === track.id;
-
-          return (
-            <div
-              key={track.id}
-              className={`group grid grid-cols-[16px_1fr_1fr_minmax(120px,1fr)_48px] items-center gap-4 rounded-md px-4 py-2 hover:bg-white/5 transition-colors ${
-                isCurrentlyPlaying ? "bg-white/5" : ""
-              }`}
-            >
-              <div className="text-center relative flex items-center justify-center">
-                <span className={`text-sm ${isCurrentlyPlaying ? "text-primary hidden group-hover:hidden" : "text-muted-foreground group-hover:hidden"}`}>
-                  {index + 1}
-                </span>
-                <button
-                  onClick={() => handlePlay(track)}
-                  className={`absolute opacity-0 group-hover:opacity-100 transition-opacity ${isCurrentlyPlaying ? "opacity-100" : ""}`}
-                >
-                  <Play className={`h-4 w-4 ${isCurrentlyPlaying ? "text-primary" : "text-foreground"}`} fill="currentColor" />
-                </button>
-              </div>
-              
-              <div className="flex items-center gap-3 overflow-hidden">
-                <img
-                  src={track.coverUrl}
-                  alt={track.title}
-                  className="h-10 w-10 flex-shrink-0 rounded bg-elevated object-cover"
-                />
-                <div className="flex flex-col truncate">
-                  <span className={`truncate text-sm font-medium ${isCurrentlyPlaying ? "text-primary" : "text-foreground"}`}>
-                    {track.title}
-                  </span>
-                  {/* Show artist here on mobile since column is hidden */}
-                  <span className="sm:hidden truncate text-xs text-muted-foreground">
-                    {track.artist}
-                  </span>
-                </div>
-              </div>
-
-              <div className="hidden sm:block truncate text-sm text-muted-foreground">
-                {track.artist}
-              </div>
-              
-              <div className="hidden md:block truncate text-sm text-muted-foreground">
-                {track.album}
-              </div>
-
-              <div className="flex items-center justify-end gap-3 text-sm text-muted-foreground">
-                <button className="opacity-0 group-hover:opacity-100 transition-opacity hover:text-primary">
-                  <Download className="h-4 w-4" />
-                </button>
-                <span>{formatTime(track.duration)}</span>
-              </div>
-            </div>
-          );
-        })}
+      <div className="w-64 flex items-center justify-end gap-3 text-muted-foreground">
+        <span className="text-[10px] font-semibold text-hi-res border border-hi-res/30 bg-hi-res/10 rounded px-1.5 py-0.5">
+          FLAC 1411 kbps
+        </span>
+        <Volume2 className="h-4 w-4" />
+        <div className="w-24 h-1 rounded-full bg-elevated overflow-hidden">
+          <div className="h-full w-2/3 bg-foreground/70" />
+        </div>
       </div>
-    </div>
+    </footer>
   );
 }
