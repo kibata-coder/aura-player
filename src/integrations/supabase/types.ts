@@ -14,7 +14,42 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      download_queue: {
+        Row: {
+          artist: string
+          created_at: string
+          id: string
+          progress: number
+          status: string
+          title: string
+          track_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          artist: string
+          created_at?: string
+          id?: string
+          progress?: number
+          status?: string
+          title: string
+          track_id: string
+          updated_at?: string
+          user_id?: string
+        }
+        Update: {
+          artist?: string
+          created_at?: string
+          id?: string
+          progress?: number
+          status?: string
+          title?: string
+          track_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
