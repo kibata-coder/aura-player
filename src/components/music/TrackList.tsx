@@ -1,159 +1,108 @@
-import { Play, Download, Clock, Plus, MoreHorizontal } from "lucide-react";
-import { useState } from "react";
+import { Play, Clock, Download, MoreHorizontal } from "lucide-react";
+import { useMusic } from "@/lib/MusicContext";
+import { CleanTrack } from "@/lib/music-api";
 
-export type Track = {
-  id: number;
-  title: string;
-  artist: string;
-  album: string;
-  cover: string;
-  quality: "Hi-Res FLAC" | "24-bit" | "FLAC" | "MQA";
-  bitrate: string;
-  duration: string;
-};
+export function TrackList() {
+  const { searchResults, currentTrack, setCurrentTrack, setIsPlaying } = useMusic();
 
-function QualityBadge({ quality }: { quality: Track["quality"] }) {
-  const isHiRes = quality === "Hi-Res FLAC" || quality === "24-bit";
-  return (
-    <span
-      className={`inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-semibold tracking-wide ${
-        isHiRes
-          ? "bg-hi-res/15 text-hi-res border border-hi-res/30"
-          : "bg-primary/10 text-primary border border-primary/25"
-      }`}
-    >
-      {quality}
-    </span>
-  );
-}
-
-function DownloadButton() {
-  const [progress, setProgress] = useState<number | null>(null);
-
-  const start = () => {
-    if (progress !== null) return;
-    setProgress(0);
-    const id = setInterval(() => {
-      setProgress((p) => {
-        if (p === null) return null;
-        if (p >= 100) {
-          clearInterval(id);
-          setTimeout(() => setProgress(null), 900);
-          return 100;
-        }
-        return p + 8;
-      });
-    }, 120);
+  const handlePlay = (track: CleanTrack) => {
+    setCurrentTrack(track);
+    setIsPlaying(true);
   };
 
-  if (progress !== null) {
-    const r = 9;
-    const c = 2 * Math.PI * r;
+  const formatTime = (seconds: number) => {
+    if (!seconds || isNaN(seconds)) return "0:00";
+    const m = Math.floor(seconds / 60);
+    const s = Math.floor(seconds % 60);
+    return `${m}:${s < 10 ? '0' : ''}${s}`;
+  };
+
+  if (searchResults.length === 0) {
     return (
-      <div className="relative h-7 w-7 grid place-items-center">
-        <svg className="absolute inset-0 -rotate-90" viewBox="0 0 24 24">
-          <circle cx="12" cy="12" r={r} stroke="currentColor" strokeOpacity="0.15" strokeWidth="2" fill="none" />
-          <circle
-            cx="12"
-            cy="12"
-            r={r}
-            stroke="currentColor"
-            strokeWidth="2"
-            fill="none"
-            strokeDasharray={c}
-            strokeDashoffset={c - (c * Math.min(progress, 100)) / 100}
-            className="text-primary transition-[stroke-dashoffset] duration-150"
-            strokeLinecap="round"
-          />
-        </svg>
-        <span className="text-[9px] text-primary font-medium">{Math.min(progress, 100)}</span>
+      <div className="flex-1 flex flex-col items-center justify-center p-12 text-center h-64">
+        <div className="w-16 h-16 bg-elevated rounded-full flex items-center justify-center mb-4">
+          <Clock className="w-6 h-6 text-muted-foreground" />
+        </div>
+        <h2 className="text-xl font-semibold text-foreground mb-2">Listen to anything</h2>
+        <p className="text-sm text-muted-foreground max-w-md">
+          Search for an artist, album, or track in the top bar to pull direct streams from the proxy network.
+        </p>
       </div>
     );
   }
 
   return (
-    <button
-      onClick={start}
-      className="h-7 w-7 grid place-items-center rounded-full text-muted-foreground hover:text-primary hover:bg-elevated transition-colors"
-      aria-label="Download lossless"
-    >
-      <Download className="h-4 w-4" />
-    </button>
-  );
-}
-
-export function TrackList({ tracks }: { tracks: Track[] }) {
-  return (
-    <div className="rounded-xl border border-border bg-card/60 backdrop-blur">
-      <div className="grid grid-cols-[40px_minmax(0,1fr)_140px_110px_60px_90px] items-center gap-4 px-5 py-3 text-[11px] uppercase tracking-[0.15em] text-muted-foreground border-b border-border">
-        <span className="text-center">#</span>
-        <span>Title</span>
-        <span className="hidden md:block">Quality</span>
-        <span className="hidden md:block">Bitrate</span>
-        <span className="grid place-items-center"><Clock className="h-3.5 w-3.5" /></span>
-        <span />
+    <div className="px-6 pb-24">
+      {/* Table Header */}
+      <div className="grid grid-cols-[16px_1fr_1fr_minmax(120px,1fr)_48px] items-center gap-4 px-4 py-2 text-xs font-medium text-muted-foreground uppercase tracking-wider border-b border-border mb-2">
+        <div className="text-center">#</div>
+        <div>Title</div>
+        <div className="hidden sm:block">Artist</div>
+        <div className="hidden md:block">Album</div>
+        <div className="text-right flex justify-end">
+          <Clock className="h-4 w-4" />
+        </div>
       </div>
 
-      <ul>
-        {tracks.map((t, i) => (
-          <li
-            key={t.id}
-            className="group grid grid-cols-[40px_minmax(0,1fr)_140px_110px_60px_90px] items-center gap-4 px-5 py-2.5 hover:bg-elevated/60 transition-colors border-b border-border/40 last:border-b-0"
-          >
-            <div className="relative h-7 grid place-items-center text-muted-foreground tabular-nums text-sm">
-              <span className="group-hover:opacity-0 transition-opacity">
-                {String(i + 1).padStart(2, "0")}
-              </span>
-              <button
-                className="absolute inset-0 grid place-items-center opacity-0 group-hover:opacity-100 transition-opacity text-foreground"
-                aria-label="Play"
-              >
-                <Play className="h-3.5 w-3.5" fill="currentColor" />
-              </button>
-            </div>
+      {/* Track Rows */}
+      <div className="flex flex-col gap-1">
+        {searchResults.map((track, index) => {
+          const isCurrentlyPlaying = currentTrack?.id === track.id;
 
-            <div className="flex items-center gap-3 min-w-0">
-              <img
-                src={t.cover}
-                alt={`${t.album} cover`}
-                width={40}
-                height={40}
-                loading="lazy"
-                className="h-10 w-10 rounded object-cover"
-              />
-              <div className="min-w-0">
-                <p className="text-sm font-medium truncate">{t.title}</p>
-                <p className="text-xs text-muted-foreground truncate">{t.artist}</p>
+          return (
+            <div
+              key={track.id}
+              className={`group grid grid-cols-[16px_1fr_1fr_minmax(120px,1fr)_48px] items-center gap-4 rounded-md px-4 py-2 hover:bg-white/5 transition-colors ${
+                isCurrentlyPlaying ? "bg-white/5" : ""
+              }`}
+            >
+              <div className="text-center relative flex items-center justify-center">
+                <span className={`text-sm ${isCurrentlyPlaying ? "text-primary hidden group-hover:hidden" : "text-muted-foreground group-hover:hidden"}`}>
+                  {index + 1}
+                </span>
+                <button
+                  onClick={() => handlePlay(track)}
+                  className={`absolute opacity-0 group-hover:opacity-100 transition-opacity ${isCurrentlyPlaying ? "opacity-100" : ""}`}
+                >
+                  <Play className={`h-4 w-4 ${isCurrentlyPlaying ? "text-primary" : "text-foreground"}`} fill="currentColor" />
+                </button>
+              </div>
+              
+              <div className="flex items-center gap-3 overflow-hidden">
+                <img
+                  src={track.coverUrl}
+                  alt={track.title}
+                  className="h-10 w-10 flex-shrink-0 rounded bg-elevated object-cover"
+                />
+                <div className="flex flex-col truncate">
+                  <span className={`truncate text-sm font-medium ${isCurrentlyPlaying ? "text-primary" : "text-foreground"}`}>
+                    {track.title}
+                  </span>
+                  {/* Show artist here on mobile since column is hidden */}
+                  <span className="sm:hidden truncate text-xs text-muted-foreground">
+                    {track.artist}
+                  </span>
+                </div>
+              </div>
+
+              <div className="hidden sm:block truncate text-sm text-muted-foreground">
+                {track.artist}
+              </div>
+              
+              <div className="hidden md:block truncate text-sm text-muted-foreground">
+                {track.album}
+              </div>
+
+              <div className="flex items-center justify-end gap-3 text-sm text-muted-foreground">
+                <button className="opacity-0 group-hover:opacity-100 transition-opacity hover:text-primary">
+                  <Download className="h-4 w-4" />
+                </button>
+                <span>{formatTime(track.duration)}</span>
               </div>
             </div>
-
-            <div className="hidden md:flex"><QualityBadge quality={t.quality} /></div>
-            <div className="hidden md:block text-xs text-muted-foreground tabular-nums">
-              {t.bitrate}
-            </div>
-            <div className="text-xs text-muted-foreground tabular-nums text-center">
-              {t.duration}
-            </div>
-
-            <div className="flex items-center justify-end gap-1">
-              <button
-                className="h-7 w-7 grid place-items-center rounded-full text-muted-foreground hover:text-foreground opacity-0 group-hover:opacity-100 transition-opacity"
-                aria-label="Add to queue"
-                title="+ Add to Queue"
-              >
-                <Plus className="h-4 w-4" />
-              </button>
-              <DownloadButton />
-              <button
-                className="h-7 w-7 grid place-items-center rounded-full text-muted-foreground hover:text-foreground opacity-0 group-hover:opacity-100 transition-opacity"
-                aria-label="More"
-              >
-                <MoreHorizontal className="h-4 w-4" />
-              </button>
-            </div>
-          </li>
-        ))}
-      </ul>
+          );
+        })}
+      </div>
     </div>
   );
 }
