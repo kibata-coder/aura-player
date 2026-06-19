@@ -14,12 +14,23 @@ export interface DownloadItem {
 }
 
 interface MusicContextType {
+  // Search & Track State
   searchResults: CleanTrack[];
   setSearchResults: (tracks: CleanTrack[]) => void;
   currentTrack: CleanTrack | null;
   setCurrentTrack: (track: CleanTrack | null) => void;
+  
+  // Playback & Audio Controls
   isPlaying: boolean;
   setIsPlaying: (playing: boolean) => void;
+  currentTime: number;
+  duration: number;
+  volume: number;
+  setVolume: (volume: number) => void;
+  seek: (time: number) => void;
+  togglePlay: () => void;
+
+  // Downloads State
   downloads: DownloadItem[];
   requestDownload: (track: CleanTrack) => Promise<void>;
 }
@@ -30,13 +41,67 @@ const BACKEND_URL = import.meta.env.VITE_BACKEND_URL as string | undefined;
 const DOWNLOADS_ENDPOINT = `${BACKEND_URL ?? ''}/api/downloads`;
 
 export function MusicProvider({ children }: { children: React.ReactNode }) {
+  // 1. Data State
   const [searchResults, setSearchResults] = useState<CleanTrack[]>([]);
   const [currentTrack, setCurrentTrack] = useState<CleanTrack | null>(null);
-  const [isPlaying, setIsPlaying] = useState(false);
   const [downloads, setDownloads] = useState<DownloadItem[]>([]);
 
-  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  // 2. Audio Player State
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [duration, setDuration] = useState(0);
+  const [volume, setVolumeState] = useState(1); // 1 = 100% volume
 
+  // 3. Refs
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  // --- AUDIO LIFECYCLE ENGINE ---
+
+  // When a new track is selected, automatically play it
+  useEffect(() => {
+    if (audioRef.current && currentTrack) {
+      setCurrentTime(0); // Reset time for new song
+      audioRef.current.src = currentTrack.streamUrl;
+      audioRef.current.load();
+      
+      // Auto-play the audio. We catch the error in case the browser blocks auto-play
+      audioRef.current.play()
+        .then(() => setIsPlaying(true))
+        .catch(err => console.error("Playback blocked or failed:", err));
+    }
+  }, [currentTrack]);
+
+  // Safely toggle play/pause via UI controls
+  const togglePlay = useCallback(() => {
+    if (!audioRef.current || !currentTrack) return;
+    
+    if (isPlaying) {
+      audioRef.current.pause();
+    } else {
+      audioRef.current.play().catch(err => console.error("Playback failed:", err));
+    }
+  }, [isPlaying, currentTrack]);
+
+  // Scrub/Seek to a specific time in the song
+  const seek = useCallback((time: number) => {
+    if (audioRef.current) {
+      audioRef.current.currentTime = time;
+      setCurrentTime(time);
+    }
+  }, []);
+
+  // Adjust volume (clamped between 0 and 1)
+  const setVolume = useCallback((newVolume: number) => {
+    const clamped = Math.max(0, Math.min(1, newVolume));
+    setVolumeState(clamped);
+    if (audioRef.current) {
+      audioRef.current.volume = clamped;
+    }
+  }, []);
+
+
+  // --- DOWNLOAD MANAGER ENGINE ---
   const fetchQueue = useCallback(async () => {
     if (!BACKEND_URL) return;
     try {
@@ -61,7 +126,6 @@ export function MusicProvider({ children }: { children: React.ReactNode }) {
     pollRef.current = setInterval(fetchQueue, 2000);
   }, [fetchQueue]);
 
-  // Run polling while there are pending/downloading jobs; stop when idle.
   useEffect(() => {
     const hasActive = downloads.some(
       (d) => d.status === 'pending' || d.status === 'downloading'
@@ -71,7 +135,6 @@ export function MusicProvider({ children }: { children: React.ReactNode }) {
     return () => stopPolling();
   }, [downloads, startPolling, stopPolling]);
 
-  // Initial fetch on mount to pick up any in-flight jobs.
   useEffect(() => {
     fetchQueue();
     return () => stopPolling();
@@ -84,7 +147,6 @@ export function MusicProvider({ children }: { children: React.ReactNode }) {
         return;
       }
 
-      // Optimistic entry so the UI reacts immediately
       const optimistic: DownloadItem = {
         id: `tmp-${track.id}`,
         track_id: track.id,
@@ -134,8 +196,23 @@ export function MusicProvider({ children }: { children: React.ReactNode }) {
         setIsPlaying,
         downloads,
         requestDownload,
+        currentTime,
+        duration,
+        volume,
+        setVolume,
+        seek,
+        togglePlay,
       }}
     >
+      {/* Hidden Native Audio Element */}
+      <audio
+        ref={audioRef}
+        onTimeUpdate={() => setCurrentTime(audioRef.current?.currentTime || 0)}
+        onLoadedMetadata={() => setDuration(audioRef.current?.duration || 0)}
+        onPlay={() => setIsPlaying(true)}
+        onPause={() => setIsPlaying(false)}
+        onEnded={() => setIsPlaying(false)}
+      />
       {children}
     </MusicContext.Provider>
   );
