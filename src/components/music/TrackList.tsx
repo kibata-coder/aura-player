@@ -52,7 +52,8 @@ export function TrackList() {
           return (
             <div
               key={track.id}
-              className={`group grid grid-cols-[16px_1fr_1fr_minmax(120px,1fr)_48px] items-center gap-4 rounded-md px-4 py-2 hover:bg-white/5 transition-colors ${
+              onClick={() => handlePlay(track)}
+              className={`group grid grid-cols-[16px_1fr_1fr_minmax(120px,1fr)_48px] items-center gap-4 rounded-md px-4 py-2 hover:bg-white/5 transition-colors cursor-pointer ${
                 isCurrentlyPlaying ? "bg-white/5" : ""
               }`}
             >
@@ -61,7 +62,10 @@ export function TrackList() {
                   {index + 1}
                 </span>
                 <button
-                  onClick={() => handlePlay(track)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handlePlay(track);
+                  }}
                   className={`absolute opacity-0 group-hover:opacity-100 transition-opacity ${isCurrentlyPlaying ? "opacity-100" : ""}`}
                 >
                   <Play className={`h-4 w-4 ${isCurrentlyPlaying ? "text-primary" : "text-foreground"}`} fill="currentColor" />
@@ -116,7 +120,10 @@ export function TrackList() {
                   if (dl?.status === "failed") {
                     return (
                       <button
-                        onClick={() => requestDownload(track)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          requestDownload(track);
+                        }}
                         className="text-destructive hover:opacity-80 transition-opacity"
                         title="Download failed — retry"
                       >
@@ -126,7 +133,10 @@ export function TrackList() {
                   }
                   return (
                     <button
-                      onClick={() => requestDownload(track)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        requestDownload(track);
+                      }}
                       className="opacity-0 group-hover:opacity-100 transition-opacity hover:text-primary"
                       title="Download"
                     >
