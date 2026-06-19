@@ -38,6 +38,7 @@ interface MusicContextType {
 const MusicContext = createContext<MusicContextType | undefined>(undefined);
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL as string | undefined;
+// Falls back to same-origin /api/downloads (TanStack server route mock)
 const DOWNLOADS_ENDPOINT = `${BACKEND_URL ?? ''}/api/downloads`;
 
 export function MusicProvider({ children }: { children: React.ReactNode }) {
@@ -103,7 +104,6 @@ export function MusicProvider({ children }: { children: React.ReactNode }) {
 
   // --- DOWNLOAD MANAGER ENGINE ---
   const fetchQueue = useCallback(async () => {
-    if (!BACKEND_URL) return;
     try {
       const res = await fetch(DOWNLOADS_ENDPOINT);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -122,7 +122,7 @@ export function MusicProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const startPolling = useCallback(() => {
-    if (pollRef.current || !BACKEND_URL) return;
+    if (pollRef.current) return;
     pollRef.current = setInterval(fetchQueue, 2000);
   }, [fetchQueue]);
 
@@ -142,11 +142,6 @@ export function MusicProvider({ children }: { children: React.ReactNode }) {
 
   const requestDownload = useCallback(
     async (track: CleanTrack) => {
-      if (!BACKEND_URL) {
-        console.error('VITE_BACKEND_URL is not configured');
-        return;
-      }
-
       const optimistic: DownloadItem = {
         id: `tmp-${track.id}`,
         track_id: track.id,
